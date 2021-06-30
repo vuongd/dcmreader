@@ -73,29 +73,30 @@ class Patient:
         fileDict = {}
         self.FoundTypes = []
         if len(self.dirDict) == 1 and "all" in self.dirDict:
-            
             if os.path.exists(self.dirDict["all"]):
-                for ifile in glob(self.dirDict["all"] + r"\\*.dcm"):
+                for ifile in glob(self.dirDict["all"] + os.sep + "*.dcm"):
                     dcm = dc.read_file(ifile)
                     modality = self.getUID(dcm.SOPClassUID)
                     self.FoundTypes.append(modality)
                     if modality not in fileDict:
                         fileDict[modality] = []
-                    fileDict[modality].append(ifile.split("\\")[-1])
-
+                    fileDict[modality].append(ifile.split(os.sep)[-1])
+            else:
+                self.logger.info("dirDict all directory does not exists")
+                return
         else:
             for i in self.dirDict:
                 fileDict[i] = []
 
                 if i == "CT":
-                    for img in glob(self.dirDict[i] + "\\*dcm"):
+                    for img in glob(self.dirDict[i] + os.sep + "*.dcm"):
                         dcm = dc.read_file(img)
                         if self.getUID(dcm.SOPClassUID) == i:
-                            fileDict[i].append(img.split("\\")[-1])
+                            fileDict[i].append(img.split(os.sep)[-1])
                             self.FoundTypes.append(i)
                 elif os.path.exists(self.dirDict[i]):
                     for ifile in os.listdir(self.dirDict[i]):
-                        dcm = dc.read_file(self.dirDict[i] + '/' + ifile)
+                        dcm = dc.read_file(self.dirDict[i] + os.sep + ifile)
                         if self.getUID(dcm.SOPClassUID) == i:
                             fileDict[i].append(ifile)
                             self.FoundTypes.append(i)
@@ -131,9 +132,9 @@ class Patient:
         """
         if "CT" in self.FoundTypes:
             if "all" in self.dirDict:
-                dcm_files = [dc.read_file(self.dirDict["all"] + '/' + s) for s in self.fileDict["CT"]]
+                dcm_files = [dc.read_file(self.dirDict["all"] + os.sep + s) for s in self.fileDict["CT"]]
             else:
-                dcm_files = [dc.read_file(self.dirDict["CT"] + '/' + s) for s in self.fileDict["CT"]]
+                dcm_files = [dc.read_file(self.dirDict["CT"] + os.sep + s) for s in self.fileDict["CT"]]
             img_files = [(round(float(dcm_files[iFile].ImagePositionPatient[2]), 3),
                           self.fileDict["CT"][iFile],
                           dcm_files[iFile]) for iFile in range(len(self.fileDict["CT"]))]
@@ -171,9 +172,9 @@ class Patient:
         """
 
         if len(self.dirDict) == 1 and "all" in self.dirDict:
-            dcm = dc.read_file(self.dirDict["all"] + r'\\' + self.fileDict["RTSTRUCT"][0])
+            dcm = dc.read_file(self.dirDict["all"] + os.sep + self.fileDict["RTSTRUCT"][0])
         else:
-            dcm = dc.read_file(self.dirDict["RTSTRUCT"] + r'\\' + self.fileDict["RTSTRUCT"][0])
+            dcm = dc.read_file(self.dirDict["RTSTRUCT"] + os.sep + self.fileDict["RTSTRUCT"][0])
         if "No IMG found" not in self.debug:
             self.rs = dcmreader.StructureSet(dcm, contourNames)
         del dcm
@@ -188,7 +189,7 @@ class Patient:
         """
 
         for i in range(len(self.fileDict["REG"])):
-            dcm = dc.read_file(self.dirDict["REG"] + r'\\' + self.fileDict["REG"][i])
+            dcm = dc.read_file(self.dirDict["REG"] + os.sep + self.fileDict["REG"][i])
             if mode["deformable"] and dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.66.3":
                 self.reg.append(dcmreader.Deformable(dcm))
             elif mode["rigid"] and dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.66.1":
@@ -197,9 +198,9 @@ class Patient:
 
     def load_dose(self):
         if len(self.dirDict) == 1 and "all" in self.dirDict:
-            dcm = dc.read_file(self.dirDict["all"] + r'\\' + self.fileDict["RTDOSE"][0])
+            dcm = dc.read_file(self.dirDict["all"] + os.sep + self.fileDict["RTDOSE"][0])
         else:
-            dcm = dc.read_file(self.dirDict["RTDOSE"] + r'\\' + self.fileDict["RTDOSE"][0])
+            dcm = dc.read_file(self.dirDict["RTDOSE"] + os.sep + self.fileDict["RTDOSE"][0])
         self.dose = dcmreader.Dose(dcm)
         del dcm
 
