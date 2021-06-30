@@ -157,7 +157,8 @@ class Structure:
         self.mask = temp_data
 
     def calculateVoxVolume(self, res, origin, dim):
-        self.createMask(res, origin, dim)
+        if not hasattr(self, "mask"):
+            self.createMask(res, origin, dim)
 
         if len(np.unique(self.mask)) < 2:
             print ("Values ", np.unique(self.mask))
