@@ -150,11 +150,25 @@ class Grid:
         self.totalPoints = len(indices[0])
 
     def getIndices(self):
+        """ get indices of Grid object
+        
+        Arguments: 
+            None
+        Returns:
+            indices         indices array
+        """
         indicesX, indicesY, indicesZ = np.meshgrid(range(int(self.dim.x)), range(int(self.dim.y)), range(int(self.dim.z)))
         indices = np.array([indicesX.ravel(), indicesY.ravel(), indicesZ.ravel()])    
         return indices
     
     def initiate(self):
+        """ initiate a Grid
+        
+        Arguments: 
+            None
+        Returns:
+            None
+        """
         indices = self.getIndices()
         pointsX = self.origin.x + indices[0] * self.res.x
         pointsY = self.origin.y + indices[1] * self.res.y
@@ -162,28 +176,62 @@ class Grid:
         self.points =  np.array([pointsX.ravel(), pointsY.ravel(), pointsZ.ravel()])
         
     def getPoints(self, mode = "array"):
+        """ get points of Grid
+        
+        Arguments: 
+            mode        
+        Returns:
+            None
+        """
         if mode == "homogeneous":
             self.points = [self.points[0].ravel(), self.points[1].ravel(), self.points[2].ravel(), np.ones([self.totalPoints])]
         return self.points
     
     def getExtent(self):
+        """ get grid extent
+        
+        Arguments: 
+            None
+        Returns:
+            None
+        """
         self.extent = [min(self.points[0]), max(self.points[0]),
                        min(self.points[1]), max(self.points[1]),
                        min(self.points[2]), max(self.points[2])]
     def setPoints(self, points):
+        """ set grid points
+        
+        Arguments: 
+            points
+        Returns:
+            None
+        """
         self.points = points
         self.totalPoints = len(self.points[0])
         
     def getPoint(self, index):
+        """ set grid point based on index
+        
+        Arguments: 
+            index       index of point to be evaluated
+        Returns:
+            None        point at this index
+        """
         return Voxel([self.points[0][index], self.points[1][index], self.points[2][index]])
-    
-    def setStartOffset(self):
-        return
+
     
     def isin(self, point):
+        """ checks if point is in grid
+        
+        Arguments: 
+            point       point to be evaluated
+        Returns:
+            isin        bool in or out of grid
+        """
         self.getExtent()
-        return ((point.x > self.extent[0] and point.x < self.extent[1]) and 
+        isin = ((point.x > self.extent[0] and point.x < self.extent[1]) and 
                 (point.y > self.extent[2] and point.y < self.extent[3]) and 
                 (point.z > self.extent[4] and point.z < self.extent[5]))
+        return isin
 
         

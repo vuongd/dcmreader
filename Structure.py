@@ -55,6 +55,12 @@ class Structure:
             self.centerOfMass = self.calculateCenterofMass()
 
     def createPolyPoints(self):
+        """ creates a poly points object 
+
+        Arguments:
+            None
+        Returns:
+            None"""
         appendFilter = vtk.vtkAppendPolyData()
 
         beforeSlice = -1
@@ -104,6 +110,15 @@ class Structure:
         polyDataWriter.Write()
 
     def createMask(self, res, origin, dim):
+        """ creates a binary mask array from structure using vtk module 
+        
+        Arguments:
+            res         image resolution
+            origin      image origin
+            dim         image dimensions
+        Returns:
+            None
+        """
         self.logger.info("Init empty mask")
         dim = dim.getArray()
         mask = vtk.vtkImageData()
@@ -157,6 +172,16 @@ class Structure:
         self.mask = temp_data
 
     def calculateVoxVolume(self, res, origin, dim):
+        """ calculates the volume (number of voxels) of structure mask
+        
+        Arguments: :
+            res         image resolution
+            origin      image origin
+            dim         image dimensions
+        Returns:
+            None
+        """
+  
         if not hasattr(self, "mask"):
             self.createMask(res, origin, dim)
 
@@ -176,6 +201,10 @@ class Structure:
         1. a geometry:  Describes single entities, such as points
         2. a topology:  Describes the connections of single entities, i.e.
                             how are the points connected?
+        Arguments:
+            scale_factor    factor (x,y,z) to scale the polydata
+        Returns:
+            None
         """
         append = vtk.vtkAppendPolyData()
 

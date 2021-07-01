@@ -31,6 +31,11 @@ class StructureSet:
             self.readStructures(contourNames)
 
     def readStructures(self, structureNames):
+        """ read structures in RTSTRUCT
+        
+        Arguments:
+            structureNames  list of names of structures
+        """
         self.selected_structures = structureNames
         for iStructure in structureNames:
             self.structures[iStructure] = self.getStructure(self.dcm, iStructure)

@@ -6,7 +6,6 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))    
 from geom import Voxel, Grid
 
-# parent class
 class Registration:
     
     def __init__(self, dcm):
@@ -31,20 +30,25 @@ class Deformable(Registration):
         Arguments: 
             None
         Returns:
-            None
+            sourceGrid      Grid of source frame
+            targetGrid      Grid of target frame
         """
         
+        # get the dcm deformable image registration sequence
         deformReg = self.dcm.data_element("DeformableRegistrationSequence")[1]
         
+        # get post rigid matrix transformation
         M_post_seq = deformReg.data_element("PostDeformationMatrixRegistrationSequence")[0]
         M_post = np.array(M_post_seq[0x3006,0x00C6].value).reshape(4,4)
         self.logger.debug ("M_post matrix %s", M_post)
         
+        # get pre rigid matrix transformation
         M_pre_seq = deformReg.data_element("PreDeformationMatrixRegistrationSequence")[0]
         M_pre = np.array(M_pre_seq[0x3006,0x00C6].value).reshape(4,4)
         self.logger.debug ("M_pre matrix %s", M_pre)
-        gridSeq = deformReg.data_element("DeformableRegistrationGridSequence")[0]
 
+        # get deformable vector field grid origin and res
+        gridSeq = deformReg.data_element("DeformableRegistrationGridSequence")[0]
         self.gridOrigin = Voxel(np.array(gridSeq.data_element("ImagePositionPatient").value)) # per definition the center of the voxel
         self.gridRes = Voxel(gridSeq.data_element("GridResolution").value)
 
@@ -53,7 +57,7 @@ class Deformable(Registration):
         
         self.dim = Voxel(np.array(gridSeq.data_element("GridDimensions").value))
         
-        # deformation grid
+        # get deformable vector field grid
         # number of bytes given as XD * YD * ZD * 3 * 4
         # https://dicom.innolitics.com/ciods/deformable-spatial-registration/deformable-spatial-registration/00640002/00640005/00640009
         if isinstance(gridSeq.data_element("VectorGridData").value, list):
@@ -84,27 +88,33 @@ class Deformable(Registration):
     def transformToSourceFrame(self, idx):
         """ transformation of coordinates from target RCS frame to source frame
             according to DICOM Equation C.20.3-1
+        
         Arguments:
-            None
+            idx     index of point in the target frame
         Return:
-            result      list of flattened x, y, z coordinates of the deformation
-                        grid to the source frame
+            pts     list of flattened x, y, z coordinates of the deformation
+                    grid to the source frame
         """
         sourceGrid, targetGrid = self.load()
         self.logger.info("\n\t\t\t Grid voxel before\t%s", targetGrid.getPoint(idx).getRounds())
         self.logger.info("Grid voxel after \t%s", sourceGrid.getPoint(idx).getRounds())
-        
-        return sourceGrid.getPoint(idx)
+        pt = sourceGrid.getPoint(idx)
+        return pt
         
     def transformToTargetFrame(self, vox):
         """ transformation of coordinates from source frame to target frame (RCS)
             according to DICOM Equation C.20.3-1
+        
+        Arguments:
+            vox             3D Voxel point object which should be transformed to target frame
+        Returns:
+            vox_target      point in target frame
         """
         sourceGrid, targetGrid = self.load()
         from functools import reduce
         assert sourceGrid.isin(vox), "Voxel is not inside deformation grid. Extent %s" + sourceGrid.getExtent()
         
-        # which values are in a small area around voxel value?      
+        # determine neighbouring candidate voxels    
         divisor = self.gridRes.z
         voxUpperBound = vox.add(Voxel(divisor, divisor, divisor)).getints()
         voxDownBound = vox.subtract(Voxel(divisor, divisor, divisor)).getints()
@@ -122,7 +132,8 @@ class Deformable(Registration):
                 testVoxel = Voxel(sourceGrid.points[0][i], sourceGrid.points[1][i], sourceGrid.points[2][i])
                 dist.append(np.linalg.norm(testVoxel.getArray() - vox.getArray()))
             closestMatchIndex =  np.where(dist == min(dist))[0][0]
-            return targetGrid.getPoint(commonIndex[closestMatchIndex])
+            vox_target = targetGrid.getPoint(commonIndex[closestMatchIndex])
+            return vox_target
 
         else: 
             self.logger.warning("No corresponding Voxel found! Check your indices!")
@@ -150,12 +161,13 @@ class Rigid(Registration): # inherit from Registration file
         self.type = "rigid"
 
     def load(self, dcm):
-        """ load deformable registration file and extract deformation grid source and target
+        """ load rigid registration file and extract transformation matrices
         Arguments: 
-            None
+            dcm         pydicom object
         Returns:
             None
         """
+        
         regSeq = dcm.data_element("RegistrationSequence")[1]
         matrixRegSeq = regSeq.data_element("MatrixRegistrationSequence")[0]
         matrixSeq = matrixRegSeq.data_element("MatrixSequence")[0]
@@ -163,18 +175,23 @@ class Rigid(Registration): # inherit from Registration file
         self.src2targetMatrix = np.array([matrixSeq.data_element("FrameOfReferenceTransformationMatrix").value]).reshape(4,4)
     
     def transformToSourceFrame(self, vox):
-        """ transformation of coordinates from target RCS frame to source frame
+        """ transformation of coordinates from target frame to source frame
         Arguments:
-            None
+            vox         to be transformed voxel (Voxel object) to source frame
         Return:
-            result      transformed point in the source target
+            vox_target      transformed point in the source frame
         """
-        result = np.linalg.inv(self.src2targetMatrix).dot([vox.x, vox.y, vox.z, 1])
+        vox_target = np.linalg.inv(self.src2targetMatrix).dot([vox.x, vox.y, vox.z, 1])
 
-        return result
+        return vox_target
         
     def transformToTargetFrame(self, vox):
         """ transformation of coordinates from source frame to target frame (RCS)
+    
+        Arguments:
+            vox             to be transformed voxel (Voxel object) to target frame
+        Return:
+            vox_target      transformed point in the target frame
         """
         
         return self.src2targetMatrix.dot([vox.x, vox.y, vox.z, 1])
