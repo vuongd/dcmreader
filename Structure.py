@@ -158,18 +158,27 @@ class Structure:
         stencil.Update()
         
         # flip the image in Y and Z directions
-        flip = vtk.vtkImageReslice() 
-        flip.SetInputConnection(stencil.GetOutputPort())
-        flip.SetResliceAxesDirectionCosines(1,0,0, 0,-1,0, 0,0,-1);
-        flip.Update();    
+        #flip = vtk.vtkImageReslice() 
+        #flip.SetInputConnection(stencil.GetOutputPort())
+        #flip.SetResliceAxesDirectionCosines(1,0,0, 0,-1,0, 0,0,-1);
+        #flip.Update();    
 
         # convert mask image data to numpy array with correct dimensions
-        vtk_data = flip.GetOutput().GetPointData().GetScalars()
-        temp_data = np.zeros((dim[2], dim[1], dim[0]), dtype = np.int16)
+        # vtk_data = flip.GetOutput().GetPointData().GetScalars()
+        
+        vtk_data = stencil.GetOutput().GetPointData().GetScalars()
+        #temp_data = np.zeros((dim[0], dim[1], dim[2]), dtype = np.int16)
         temp_data = numpy_support.vtk_to_numpy(vtk_data).reshape(dim[2], dim[1], dim[0]).astype(np.int16)
-        temp_data = temp_data.transpose(2,1,0)
-        temp_data = np.flip(temp_data, 2)
-        self.mask = temp_data
+        
+        # write to image        
+#         scalars = stencil.GetOutput().GetPointData().GetScalars()
+#         np_scalars = vtk_to_numpy(scalars)     
+#         np_scalars = np_scalars.reshape(dim[2], dim[1], dim[0]) 
+#         np_scalars = np_scalars.transpose(2,1,0)
+            #temp_data = temp_data.transpose(2,1,0)
+        #temp_data.transpose(1,2,0)
+        #temp_data = np.flip(temp_data, 2)
+        self.mask = temp_data.transpose(2,1,0)
 
     def calculateVoxVolume(self, res, origin, dim):
         """ calculates the volume (number of voxels) of structure mask
