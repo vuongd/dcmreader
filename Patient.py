@@ -77,10 +77,12 @@ class Patient:
                 for ifile in glob(self.dirDict["all"] + os.sep + "*.dcm"):
                     dcm = dc.read_file(ifile)
                     modality = self.getUID(dcm.SOPClassUID)
-                    self.FoundTypes.append(modality)
-                    if modality not in fileDict:
-                        fileDict[modality] = []
-                    fileDict[modality].append(ifile.split(os.sep)[-1])
+                    if modality != "not found":
+                        self.dirDict[modality] = self.dirDict["all"]
+                        self.FoundTypes.append(modality)
+                        if modality not in fileDict:
+                            fileDict[modality] = []
+                        fileDict[modality].append(ifile.split(os.sep)[-1])
             else:
                 self.logger.info("dirDict all directory does not exists")
                 return
@@ -135,11 +137,14 @@ class Patient:
                 dcm_files = [dc.read_file(self.dirDict["all"] + os.sep + s) for s in self.fileDict["CT"]]
             else:
                 dcm_files = [dc.read_file(self.dirDict["CT"] + os.sep + s) for s in self.fileDict["CT"]]
+            
             img_files = [(round(float(dcm_files[iFile].ImagePositionPatient[2]), 3),
                           self.fileDict["CT"][iFile],
                           dcm_files[iFile]) for iFile in range(len(self.fileDict["CT"]))]
             img_files.sort()
             arr = np.array(img_files)
+            
+           
             self.fileDict["CT"] = arr[:,1]
             dcm_files = arr[:,2]
 
@@ -147,13 +152,22 @@ class Patient:
             if not isinstance(slices, list):
                 slices = list(slices)
 
+            # x - left right 
+            # y - ant post
+            # z - inf sup
+            self.orientation = Voxel(round(float(dcm_files[0].ImageOrientationPatient[0]), 2),
+                                round(float(dcm_files[0].ImageOrientationPatient[1]), 2),
+                                round(float(dcm_files[0].ImageOrientationPatient[2]), 2))
             self.origin = Voxel(round(float(dcm_files[0].ImagePositionPatient[0]), 2),
                                 round(float(dcm_files[0].ImagePositionPatient[1]), 2),
                                 round(float(dcm_files[0].ImagePositionPatient[2]), 2))
             self.res = Voxel(round(float(dcm_files[0].PixelSpacing[0]), 2),
                              round(float(dcm_files[0].PixelSpacing[1]), 2),
                              round(abs(slices[1]-slices[0]), 2))
-            self.dim = Voxel(int(dcm_files[0].Columns), int(dcm_files[0].Rows), int(len(slices)))
+            self.dim = Voxel(int(dcm_files[0].Rows), int(dcm_files[0].Columns), int(len(slices)))
+            
+        
+            
             if mode == "full":
                 self.images = self.get_pixels_hu(dcm_files)
             self.name = dcm_files[0].PatientName
@@ -197,13 +211,39 @@ class Patient:
         del dcm
 
     def load_dose(self):
-        if len(self.dirDict) == 1 and "all" in self.dirDict:
-            dcm = dc.read_file(self.dirDict["all"] + os.sep + self.fileDict["RTDOSE"][0])
-        else:
+        self.dose = []
+        for iDoseFileName in self.fileDict["RTDOSE"]:
             dcm = dc.read_file(self.dirDict["RTDOSE"] + os.sep + self.fileDict["RTDOSE"][0])
-        self.dose = dcmreader.Dose(dcm)
+            self.dose.append(dcmreader.Dose(dcm))
         del dcm
-
+    
+    def getDoseCube(self):
+        dose_cube = np.zeros(self.dim.getArray())
+        if self.dose[0].sumType == "PLAN":
+            self.dose[0].interpolateCube(self.res, self.origin, self.dim)
+            dose_cube = self.dose[0].cube_i
+        
+        elif self.dose[0].sumType == "FRACTION":
+            for fractionDose in range(len(self.dose)):
+                self.dose[fractionDose].interpolateCube(self.res, self.origin, self.dim)
+                dose_cube += self.dose[fractionDose].cube_i
+            dose_cube /= float(len(self.dose))
+        
+        elif self.dose[0].sumType == "BEAM":
+            for beamDose in range(len(self.dose)):
+                self.dose[beamDose].interpolateCube(self.res, self.origin, self.dim)
+                dose_cube += self.dose[beamDose].cube_i
+        
+        elif self.dose[0].sumType == "CONTROL_POINT":
+            for controlPointDose in range(len(self.dose)):
+                self.dose[controlPointDose].interpolateCube(self.res, self.origin, self.dim)
+                dose_cube += self.dose[controlPointDose].cube_i 
+            #dose_cube /= float(len(self.dose))
+        else:
+            self.debug.append("Patient: Dose Summation Type {} not implemented".format(self.dose[0].sumType))
+        return dose_cube
+    
+    
     def get_pixels_hu(self, scans):
         """ returns Houndsfield units from the scans
 
@@ -226,7 +266,9 @@ class Patient:
 
         image += np.int16(intercept)
         images = np.array(image, dtype=np.int16)
-        return images
+        images = images.transpose(2, 1, 0) # reorder axis, that x left right, y ant post, z inf sup
+        
+        return images 
 
     def setLabel(self, label):
         """ set Status label for patient

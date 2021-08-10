@@ -38,7 +38,9 @@ class StructureSet:
         """
         self.selected_structures = structureNames
         for iStructure in structureNames:
-            self.structures[iStructure] = self.getStructure(self.dcm, iStructure)
+            structure = self.getStructure(self.dcm, iStructure)
+            if structure != -1:
+                self.structures[iStructure] = structure
 
     def getStructure(self, dcm, structureName):
         """ read in structure with its contour points
@@ -49,7 +51,7 @@ class StructureSet:
         Returns:
             structure       structure object
         """
-        structure = ""
+        structure = -1
         try:
             self.structureNames.index(structureName)
             structure = dcmreader.Structure(dcm, structure = {"index": self.structureNames.index(structureName), "name":structureName})
